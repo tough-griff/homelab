@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /certs/home.yourick.net.cer
+      keyFile: /certs/home.yourick.net.key

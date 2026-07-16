@@ -1,0 +1,119 @@
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:3.7
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    networks:
+      - traefik
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ~/.acme.sh/${DOMAIN}_ecc:/certs:ro
+      - ./traefik:/etc/traefik:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.services.traefik.loadbalancer.server.port=80"
+
+  dozzle:
+    container_name: dozzle
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    networks:
+      - traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dozzle_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls=true"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    networks:
+      - traefik
+    volumes:
+      - /run/dbus:/run/dbus:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./homeassistant:/config
+    environment:
+      TZ: America/New_York
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
+      - "traefik.http.routers.homeassistant.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant.tls=true"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    restart: unless-stopped
+    networks:
+      - traefik
+    dns:
+      - 127.0.0.1
+      - 9.9.9.9
+      - 149.112.112.112
+      - 2620:fe::9
+      - 2620:fe::fe
+    volumes:
+      - pihole_etc_pihole:/etc/pihole/
+    environment:
+      TZ: America/New_York
+    env_file: ./pihole/.env
+    cap_add:
+      - SYS_TIME
+      - SYS_NICE
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pihole.rule=Host(`pihole.${DOMAIN}`)"
+      - "traefik.http.routers.pihole.entrypoints=websecure"
+      - "traefik.http.routers.pihole.tls=true"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
+
+  whoami:
+    container_name: whoami
+    image: traefik/whoami
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
+      - "traefik.http.routers.whoami.entrypoints=websecure"
+      - "traefik.http.routers.whoami.tls=true"
+      - "traefik.http.services.whoami.loadbalancer.server.port=80"
+
+networks:
+  traefik:
+    name: traefik
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+        - subnet: fd27:1105:6dac::/64
+          gateway: fd27:1105:6dac::1
+
+volumes:
+  dozzle_data:
+  pihole_etc_pihole:
