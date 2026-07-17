@@ -39,6 +39,8 @@ services:
       - "traefik.http.routers.dozzle.entrypoints=websecure"
       - "traefik.http.routers.dozzle.tls=true"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
 
   homeassistant:
     container_name: homeassistant
@@ -60,6 +62,8 @@ services:
       - "traefik.http.routers.homeassistant.entrypoints=websecure"
       - "traefik.http.routers.homeassistant.tls=true"
       - "traefik.http.services.homeassistant.loadbalancer.server.url=http://${IP}:8123"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer ${HOMEASSISTANT_TOKEN}\" http://localhost:8123/api/config | jq '.state == \"RUNNING\"' || exit 1"]
 
   homebridge:
     container_name: homebridge
@@ -78,6 +82,8 @@ services:
       - "traefik.http.routers.homebridge.entrypoints=websecure"
       - "traefik.http.routers.homebridge.tls=true"
       - "traefik.http.services.homebridge.loadbalancer.server.url=http://${IP}:8581"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer ${HOMEBRIDGE_TOKEN}\" http://localhost:8581/api/status/homebridge | jq '.status == \"ok\"' || exit 1"]
 
   pihole:
     container_name: pihole
