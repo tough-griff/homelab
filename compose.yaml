@@ -44,29 +44,50 @@ services:
     container_name: homeassistant
     image: ghcr.io/home-assistant/home-assistant:stable
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges
-    networks:
-      - traefik
+    network_mode: host
     volumes:
       - /run/dbus:/run/dbus:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./homeassistant:/config
+      - ~/.homeassistant:/config
     environment:
       TZ: America/New_York
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
       - "traefik.http.routers.homeassistant.entrypoints=websecure"
       - "traefik.http.routers.homeassistant.tls=true"
-      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+      - "traefik.http.services.homeassistant.loadbalancer.server.url=http://${IP}:8123"
+
+  homebridge:
+    container_name: homebridge
+    image: homebridge/homebridge:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    network_mode: host
+    volumes:
+      - homebridge_homebridge:/homebridge
+    environment:
+      TZ: America/New_York
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homebridge.rule=Host(`homebridge.${DOMAIN}`)"
+      - "traefik.http.routers.homebridge.entrypoints=websecure"
+      - "traefik.http.routers.homebridge.tls=true"
+      - "traefik.http.services.homebridge.loadbalancer.server.url=http://${IP}:8581"
 
   pihole:
     container_name: pihole
     image: pihole/pihole:latest
-    restart: unless-stopped
+    restart: always
     networks:
       - traefik
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
     dns:
       - 127.0.0.1
       - 9.9.9.9
@@ -75,9 +96,7 @@ services:
       - 2620:fe::fe
     volumes:
       - pihole_etc_pihole:/etc/pihole/
-    environment:
-      TZ: America/New_York
-    env_file: ./pihole/.env
+    env_file: ./pihole.env
     cap_add:
       - SYS_TIME
       - SYS_NICE
@@ -87,6 +106,24 @@ services:
       - "traefik.http.routers.pihole.entrypoints=websecure"
       - "traefik.http.routers.pihole.tls=true"
       - "traefik.http.services.pihole.loadbalancer.server.port=80"
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:latest
+    restart: always
+    security_opt:
+      - no-new-privileges
+    networks:
+      - traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
   whoami:
     container_name: whoami
@@ -116,4 +153,6 @@ networks:
 
 volumes:
   dozzle_data:
+  homebridge_homebridge:
   pihole_etc_pihole:
+  portainer_data:
