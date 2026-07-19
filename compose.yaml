@@ -6,7 +6,7 @@ services:
     security_opt:
       - no-new-privileges
     networks:
-      - traefik
+      traefik:
     ports:
       - 80:80
       - 443:443
@@ -29,9 +29,9 @@ services:
     security_opt:
       - no-new-privileges
     networks:
-      - traefik
+      traefik:
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - dozzle_data:/data
     labels:
       - "traefik.enable=true"
@@ -46,9 +46,13 @@ services:
     container_name: homeassistant
     image: ghcr.io/home-assistant/home-assistant:stable
     restart: unless-stopped
-    network_mode: host
+    networks:
+      lan:
+        gw_priority: 1
+        ipv4_address: 192.168.69.24
+      traefik:
     volumes:
-      - /run/dbus:/run/dbus:ro
+      - /var/run/dbus:/var/run/dbus:ro
       - /etc/localtime:/etc/localtime:ro
       - ~/.homeassistant:/config
     environment:
@@ -61,7 +65,7 @@ services:
       - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
       - "traefik.http.routers.homeassistant.entrypoints=websecure"
       - "traefik.http.routers.homeassistant.tls=true"
-      - "traefik.http.services.homeassistant.loadbalancer.server.url=http://${IP}:8123"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer ${HOMEASSISTANT_TOKEN}\" http://localhost:8123/api/config | jq '.state == \"RUNNING\"' || exit 1"]
 
@@ -71,7 +75,11 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges
-    network_mode: host
+    networks:
+      lan:
+        gw_priority: 1
+        ipv4_address: 192.168.69.242
+      traefik:
     volumes:
       - homebridge_homebridge:/homebridge
     environment:
@@ -81,7 +89,7 @@ services:
       - "traefik.http.routers.homebridge.rule=Host(`homebridge.${DOMAIN}`)"
       - "traefik.http.routers.homebridge.entrypoints=websecure"
       - "traefik.http.routers.homebridge.tls=true"
-      - "traefik.http.services.homebridge.loadbalancer.server.url=http://${IP}:8581"
+      - "traefik.http.services.homebridge.loadbalancer.server.port=8581"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf -H \"Authorization: Bearer ${HOMEBRIDGE_TOKEN}\" http://localhost:8581/api/status/homebridge | jq '.status == \"ok\"' || exit 1"]
 
@@ -90,7 +98,7 @@ services:
     image: pihole/pihole:latest
     restart: always
     networks:
-      - traefik
+      traefik:
     ports:
       - 53:53/tcp
       - 53:53/udp
@@ -120,7 +128,7 @@ services:
     security_opt:
       - no-new-privileges
     networks:
-      - traefik
+      traefik:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
@@ -138,7 +146,7 @@ services:
     security_opt:
       - no-new-privileges
     networks:
-      - traefik
+      traefik:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
@@ -156,6 +164,15 @@ networks:
           gateway: 172.20.0.1
         - subnet: fd27:1105:6dac::/64
           gateway: fd27:1105:6dac::1
+  lan:
+    driver: macvlan
+    driver_opts:
+      parent: eth0
+    ipam:
+      config:
+        - subnet: 192.168.69.0/24
+          gateway: 192.168.69.1
+          ip_range: 192.168.69.240/28
 
 volumes:
   dozzle_data:
