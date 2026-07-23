@@ -49,7 +49,7 @@ services:
     networks:
       lan:
         gw_priority: 1
-        ipv4_address: 192.168.69.24
+        ipv4_address: 192.168.69.241
       traefik:
     volumes:
       - /var/run/dbus:/var/run/dbus:ro
